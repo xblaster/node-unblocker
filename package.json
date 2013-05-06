@@ -5,11 +5,6 @@
   "version": "0.8.1",
   "repository": "git://github.com/nfriedly/node-unblocker.git",
   "dependencies": {
-    "redis-url": "0.1.x",
-    "redis": "0.8.x",
-    "connect": "2.7.x",
-    "connect-redis": "1.4.x",
-    "iconv": "2.0.x"
   },
   "engines": {
     "node": "0.10.x",

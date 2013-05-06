@@ -29,8 +29,9 @@ var http = require('http'),
 	fs = require("fs"),
 	zlib = require('zlib'),
 	cluster = require('cluster'),
-	Iconv = require('iconv').Iconv,
-	numCPUs = require('os').cpus().length;
+	//Iconv = require('iconv').Iconv,
+	//numCPUs = require('os').cpus().length;
+	numCPUs = 1;
 
 
 // local dependencies
@@ -39,8 +40,24 @@ var blocklist = require('./lib/blocklist');
 // the configuration file
 var config = require('./config');
 
+var connect = require('connect');
+
+var cryptHost = function(host) {
+	//return "grrrr"+host;
+	return host;
+}
+
+var decryptHost = function(host) {
+	//return host.replace("grrrr","");
+	return host;
+}
+
+console.log(cryptHost("lo2k.net"));
+console.log(decryptHost(cryptHost("lo2k.net")));
+	//process.exit(0);
+
 // third-party dependencies
-var connect = require('connect'), // todo: call by version once 2.x is listed in npm
+/*var connect = require('connect'), // todo: call by version once 2.x is listed in npm
 	RedisStore = require('connect-redis')(connect),
 	redis;
 // the redis client differs depending on if you're using redistogo (heroku) or not
@@ -48,20 +65,20 @@ if(config.redistogo_url) {
 	redis = require('redis-url').connect(config.redistogo_url);
 } else {
 	redis = require('redis').createClient(config.redis_port, config.redis_host, config.redis_options);
-}
+}*/
 
 	
 
 var server = connect()
 	.use(connect.cookieParser(config.secret))
   	.use(connect.session({
-  		store: new RedisStore({client: redis}),
+  		//store: new RedisStore({client: redis}),
   		cookie: { path: '/', httpOnly: false, maxAge: null }
   	}))
 	.use(function(request, response){
 	var url_data = url.parse(request.url);
 	
-	console.log("(" + process.pid + ") New Request: ", request.url);
+	//console.log("(" + process.pid + ") New Request: ", request.url);
 	
 	
     incrementRequests();
@@ -80,6 +97,7 @@ var server = connect()
 	if(url_data.pathname == "/proxy/no-js"){
 		// grab the "url" parameter from the querystring
 		var site = querystring.parse( url.parse(request.url).query ).url;
+		//var site = cryptHost(site);
 		// and redirect the user to /proxy/url
 		redirectTo(request, response, site || "");
 	}
@@ -159,8 +177,14 @@ var charset_aliases_iconv = {
 */
 function proxy(request, response) {
 
-
+	console.log("[request] "+request.url);
 	var uri = url.parse(getRealUrl(request.url));
+
+	//decrypt uri
+	uri.hostname = decryptHost(uri.hostname);
+	console.log("proxyyyyy !!!!");
+	console.log(url.format(uri));
+
 	// make sure the url in't blocked
 	if(!blocklist.urlAllowed(uri)){
       return redirectTo(request, response, "?error=Please use a different proxy to access this site");
@@ -317,6 +341,10 @@ function proxy(request, response) {
 			
 			chunk = add_ga(chunk);
 			
+			//console.log("-->"+JSON.stringify(uri));
+			//crypt host everywhere
+			chunk.replace(uri.host, cryptHost(uri.host));
+
 			response.write(encodeChunk(chunk));
 		}
 
@@ -334,12 +362,12 @@ function proxy(request, response) {
 			}
 			//console.log("charset: " + charset);
 
-			if( charset in charset_aliases ){
+			//if( charset in charset_aliases ){
 				return chunk.toString(charset_aliases[charset]);
-			} else {
-				if( !decodeIconv ) decodeIconv = new Iconv(charset, 'UTF-8//TRANSLIT//IGNORE');
-				return decodeIconv.convert(chunk).toString();
-			}
+			//} else {
+				//if( !decodeIconv ) decodeIconv = new Iconv(charset, 'UTF-8//TRANSLIT//IGNORE');
+			//	return decodeIconv.convert(chunk).toString();
+			//}
 		}
 
 		// normalize charset which iconv doesn't support
@@ -349,12 +377,12 @@ function proxy(request, response) {
 
 		// encode chunk string to binary using charset
 		function encodeChunk(chunk){
-			if( charset in charset_aliases ){
+			//if( charset in charset_aliases ){
 				return new Buffer(chunk, charset_aliases[charset]);
-			} else {
-				if( !encodeIconv ) encodeIconv = new Iconv('UTF-8', charset + '//TRANSLIT//IGNORE');
-				return encodeIconv.convert(chunk);
-			}
+			//} else {
+				//if( !encodeIconv ) encodeIconv = new Iconv('UTF-8', charset + '//TRANSLIT//IGNORE');
+			//	return encodeIconv.convert(chunk);
+			//}
 		}
 
 		// check tail of the utf8 binary and return the size of cut data
@@ -754,12 +782,12 @@ var waitingStatusResponses = [];
 
 // simple way to get the curent status of the server
 function status(request, response){
-	console.log("status request recieved on pid " + process.pid);
+	//console.log("status request recieved on pid " + process.pid);
 	response.writeHead("200", {"Content-Type": "text/plain", "Expires": 0});
 	
 	// only send out a new status request if we don't already have one in the pipe
 	if(waitingStatusResponses.length == 0) {
-		console.log("sending status request message");
+		//console.log("sending status request message");
 		process.send({type: "status.request", from: process.pid});
 	}
 	
@@ -930,7 +958,7 @@ if (cluster.isMaster) {
 		if (!message.type) {
 			return;
 		}
-		console.log("messge recieved by child (" + process.pid + ") ", message);
+		//console.log("message recieved by child (" + process.pid + ") ", message);
 		if (message.type == "status.response") {
 			sendStatus(message);
 		}
