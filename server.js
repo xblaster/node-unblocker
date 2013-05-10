@@ -34,6 +34,8 @@ var http = require('http'),
 	numCPUs = 1;
 
 
+var btoa = require("btoa");
+
 // local dependencies
 var blocklist = require('./lib/blocklist');
   
@@ -43,13 +45,12 @@ var config = require('./config');
 var connect = require('connect');
 
 var cryptHost = function(host) {
-	//return "grrrr"+host;
-	return host;
+	return btoa(host)+".fr";
 }
 
 var decryptHost = function(host) {
-	//return host.replace("grrrr","");
-	return host;
+	var buff = new Buffer(host.replace(".fr",""),"base64");
+	return buff.toString("ascii");
 }
 
 console.log(cryptHost("lo2k.net"));
@@ -178,10 +179,21 @@ var charset_aliases_iconv = {
 function proxy(request, response) {
 
 	console.log("[request] "+request.url);
-	var uri = url.parse(getRealUrl(request.url));
+	var rePattern = new RegExp(/http:\/\/([A-Za-z0-9]*)/);
+	var arrMatches = request.url.match(rePattern);
+	var cryptedHost = arrMatches[1];
+	var decryptedHost = decryptHost(cryptedHost);
+
+	var decryptedURI = request.url.replace(cryptedHost, decryptHost);
+
+	var uri = url.parse(getRealUrl(decryptedURI));
+	var plomUri = url.parse(getRealUrl(request.url));
+
+	
 
 	//decrypt uri
-	uri.hostname = decryptHost(uri.hostname);
+	
+	console.log(uri.hostname);
 	console.log("proxyyyyy !!!!");
 	console.log(url.format(uri));
 
@@ -205,7 +217,7 @@ function proxy(request, response) {
 	
 	// todo: grab any new cookies in headers.cookie (set by JS) and store them in the session
 	// (assume / path and same domain as request's referer)
-	headers.cookie = getCookies(request, uri);
+	headers.cookie = getCookies(request, plomUri);
 	
 	console.log("sending these cookies: " + headers.cookie);
 	
@@ -341,8 +353,9 @@ function proxy(request, response) {
 			
 			chunk = add_ga(chunk);
 			
-			//console.log("-->"+JSON.stringify(uri));
+			console.log("-->"+JSON.stringify(uri));
 			//crypt host everywhere
+			//console.log(uri.host)
 			chunk.replace(uri.host, cryptHost(uri.host));
 
 			response.write(encodeChunk(chunk));
